@@ -23,6 +23,6 @@ global distributors and partners to push open hardware movement.<br>
 [![Analytics](https://ga-beacon.appspot.com/UA-46589105-3/Mesh_Bee)](https://github.com/igrigorik/ga-beacon)
 
 
-####Libray Modification
+####Libray Modification on CTI-RU1
   We have modify the specific library by include a methods that power on/off the sensor in order to can include it multiple digital sensor at the same bus.
   Is necessary just one sensor be power each time on the I2C comunication bus.
