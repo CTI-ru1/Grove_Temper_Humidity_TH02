@@ -62,15 +62,21 @@ class TH02_dev
 {
 public:
 	void begin();
+	void begin(int pin);
+	void PowerOn(void);
+	void PowerOff(void);
 	uint8_t isAvailable();
 	float ReadTemperature(void);
 	float ReadHumidity(void);
+	int ControlPin;
 private:
 	void TH02_IIC_WriteCmd(uint8_t u8Cmd);
 	uint8_t TH02_IIC_ReadReg(uint8_t u8Reg);
 	void TH02_IIC_WriteReg(uint8_t u8Reg,uint8_t u8Data);
 	uint16_t TH02_IIC_ReadData(void);
 	uint16_t TH02_IIC_ReadData2byte(void);
+	float tem;
+	
 };
 extern TH02_dev TH02;
 

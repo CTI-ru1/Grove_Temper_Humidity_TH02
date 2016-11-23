@@ -35,6 +35,7 @@
 #include "TH02_dev.h"
 #include <Wire.h>
 #include <Arduino.h>
+//#include <Math.h>
 /* Use Serial IIC */
 #ifdef SERIAL_IIC
 #endif
@@ -49,12 +50,32 @@ TH02_dev TH02;
 /***       Class member Functions                                         ***/
 /****************************************************************************/
 
-void TH02_dev::begin(void)
+void TH02_dev::begin()
 {
     /* Start IIC */
-    Wire.begin();
+ //   Wire.begin();
+    
 	/* TH02 don't need to software reset */
 }
+void TH02_dev::begin(int pin)
+{
+    /* Start IIC */
+    ControlPin=pin;
+    //Wire.begin();
+    pinMode(ControlPin,OUTPUT);	
+    PowerOff();
+	/* TH02 don't need to software reset */
+}
+void TH02_dev::PowerOn(void)
+{
+    digitalWrite(ControlPin, LOW);
+}
+
+void TH02_dev::PowerOff(void)
+{
+    digitalWrite(ControlPin, HIGH);
+}
+
 
 float TH02_dev::ReadTemperature(void)
 {    
@@ -71,7 +92,7 @@ float TH02_dev::ReadTemperature(void)
       Temperature(C) = (Value/32) - 50	  
 	*/	
 	float temper = (value/32.0)-50.0;
-	
+	tem=temper;
 	return temper;
 }
  
@@ -86,15 +107,20 @@ float TH02_dev::ReadHumidity(void)
 	uint16_t value = TH02_IIC_ReadData();
 	
 	value = value >> 4;
- 
+ 	
 	/* 
 	  Formula:
       Humidity(%) = (Value/16) - 24	  
 	*/	
 
-	float humility = (value/16.0)-24.0;
+	float RHline = (value/16.0)-24.0;
+	//linearization 
+	//float RHline=RH-(RH*RH*(-0.00393)+RH*0.4008-4.7844);
+	//temperature compensation. Is necesary to have been read first the temperature	
+	float humidity=RHline+(tem-30)*(RHline*0.00237+0.1973);
+
 	
-	return humility;
+	return RHline;
 }
 
 /****************************************************************************/
