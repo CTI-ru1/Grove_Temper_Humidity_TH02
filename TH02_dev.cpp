@@ -27,6 +27,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
+My changes:
+-I include the PowerOn and PowerOff that allow me to include more than one I2C senor
+-I include a check on each endtransmission to check if has been a correct transimission 
+and if not just set data at 0 and follow the code without stack.
+
+
  */
 
 /****************************************************************************/
@@ -53,7 +59,7 @@ TH02_dev TH02;
 void TH02_dev::begin()
 {
     /* Start IIC */
- //   Wire.begin();
+   Wire.begin();
     
 	/* TH02 don't need to software reset */
 }
@@ -61,7 +67,7 @@ void TH02_dev::begin(int pin)
 {
     /* Start IIC */
     ControlPin=pin;
-    //Wire.begin();
+    Wire.begin();
     pinMode(ControlPin,OUTPUT);	
     PowerOff();
 	/* TH02 don't need to software reset */
@@ -80,47 +86,61 @@ void TH02_dev::PowerOff(void)
 float TH02_dev::ReadTemperature(void)
 {    
     /* Start a new temperature conversion */
-	TH02_IIC_WriteReg(REG_CONFIG, CMD_MEASURE_TEMP);	 	 
-    //delay(100);
-	/* Wait until conversion is done */
-	while(!isAvailable());
-	uint16_t value = TH02_IIC_ReadData();
+	if (TH02_IIC_WriteReg(REG_CONFIG, CMD_MEASURE_TEMP)!=0)
+	{
+		Serial.println("not correct end data");
+		return 0;
+    	} 
+	else
+	{	 
+    		//delay(100);
+		/* Wait until conversion is done */
+		while(!isAvailable());
+		uint16_t value = TH02_IIC_ReadData();
 	
-	value = value >> 2;
-	/* 
-	  Formula:
-      Temperature(C) = (Value/32) - 50	  
-	*/	
-	float temper = (value/32.0)-50.0;
-	tem=temper;
-	return temper;
+		value = value >> 2;
+		/* 
+	  	Formula:
+      		Temperature(C) = (Value/32) - 50	  
+		*/	
+		float temper = (value/32.0)-50.0;
+		tem=temper;
+		return temper;
+	}
 }
  
 float TH02_dev::ReadHumidity(void)
 {
  /* Start a new humility conversion */
-	TH02_IIC_WriteReg(REG_CONFIG, CMD_MEASURE_HUMI);
+	if (TH02_IIC_WriteReg(REG_CONFIG, CMD_MEASURE_HUMI)!=0)
+	{
+		Serial.println("not correct end data");
+		return 0;
+    	} 
+	else
+	{
 	
-	/* Wait until conversion is done */
-	//delay(100);
-	while(!isAvailable());
-	uint16_t value = TH02_IIC_ReadData();
+		/* Wait until conversion is done */
+		//delay(100);
+		while(!isAvailable());
+		uint16_t value = TH02_IIC_ReadData();
 	
-	value = value >> 4;
+		value = value >> 4;
  	
-	/* 
-	  Formula:
-      Humidity(%) = (Value/16) - 24	  
-	*/	
+		/* 
+		  Formula:
+ 		  Humidity(%) = (Value/16) - 24	  
+		*/	
 
-	float RHline = (value/16.0)-24.0;
-	//linearization 
-	//float RHline=RH-(RH*RH*(-0.00393)+RH*0.4008-4.7844);
-	//temperature compensation. Is necesary to have been read first the temperature	
-	float humidity=RHline+(tem-30)*(RHline*0.00237+0.1973);
+		float RHline = (value/16.0)-24.0;
+		//linearization 
+		//float RHline=RH-(RH*RH*(-0.00393)+RH*0.4008-4.7844);
+		//temperature compensation. Is necesary to have been read first the temperature	
+		float humidity=RHline+(tem-30)*(RHline*0.00237+0.1973);
 
 	
-	return RHline;
+		return RHline;
+	}
 }
 
 /****************************************************************************/
@@ -139,12 +159,12 @@ uint8_t TH02_dev::isAvailable()
 	}
 }
 
-void TH02_dev::TH02_IIC_WriteCmd(uint8_t u8Cmd)
+int TH02_dev::TH02_IIC_WriteCmd(uint8_t u8Cmd)
 {		
 	/* Port to arduino */
 	Wire.beginTransmission(TH02_I2C_DEV_ID);
 	Wire.write(u8Cmd);
-	Wire.endTransmission();
+	return Wire.endTransmission();
 }
 
 uint8_t TH02_dev::TH02_IIC_ReadReg(uint8_t u8Reg)
@@ -153,8 +173,14 @@ uint8_t TH02_dev::TH02_IIC_ReadReg(uint8_t u8Reg)
     uint8_t Temp = 0;
 	
 	/* Send a register reading command */
-    TH02_IIC_WriteCmd(u8Reg);	
-		 
+    if (TH02_IIC_WriteCmd(u8Reg)!=0)
+    {
+	Serial.println("not correct end data");
+	return 0;
+    }
+    else
+    {					
+				 
 	Wire.requestFrom(TH02_I2C_DEV_ID, 1);	 
 	while(Wire.available())
 	{
@@ -162,14 +188,15 @@ uint8_t TH02_dev::TH02_IIC_ReadReg(uint8_t u8Reg)
 	}
 		
 	return Temp;
+    }
 } 
 
-void TH02_dev::TH02_IIC_WriteReg(uint8_t u8Reg,uint8_t u8Data)
+int TH02_dev::TH02_IIC_WriteReg(uint8_t u8Reg,uint8_t u8Data)
 {           
 	Wire.beginTransmission(TH02_I2C_DEV_ID);	 
 	Wire.write(u8Reg);	 
 	Wire.write(u8Data);	 
-	Wire.endTransmission();	 
+	return Wire.endTransmission();	 
 }
 
 uint16_t TH02_dev::TH02_IIC_ReadData(void)
@@ -185,15 +212,22 @@ uint16_t TH02_dev::TH02_IIC_ReadData2byte()
 	uint16_t tmpArray[3]={0};
 
 	int cnt = 0;
-	TH02_IIC_WriteCmd(REG_DATA_H);	
-	
-	Wire.requestFrom(TH02_I2C_DEV_ID, 3);	 
-	while(Wire.available())
+	if (TH02_IIC_WriteCmd(REG_DATA_H)!=0)
 	{
-	    tmpArray[cnt] = (uint16_t)Wire.read();        	        	
-		cnt++;
-	}
-	/* MSB */
-	TempData = (tmpArray[1]<<8)|(tmpArray[2]); 
-	return TempData;
+		Serial.println("not correct end data");
+		return 0;
+	}	
+	else
+	{
+		Wire.requestFrom(TH02_I2C_DEV_ID, 3);	 
+		while(Wire.available())
+		{
+	    		tmpArray[cnt] = (uint16_t)Wire.read();        	        	
+			cnt++;
+		}
+	
+		/* MSB */
+		TempData = (tmpArray[1]<<8)|(tmpArray[2]); 
+		return TempData;
+	}	
 }
